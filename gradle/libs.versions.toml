@@ -8,7 +8,7 @@ composeBom = "2024.12.01"
 googleServices = "4.4.2"
 firebaseBom = "33.7.0"
 media3 = "1.5.0"
-webrtc = "125.6422.06"
+webrtc = "1.0.32006"
 socketIo = "2.1.1"
 
 [plugins]
@@ -41,5 +41,5 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
 
 # WebRTC & Signaling
-webrtc = { group = "io.github.webrtc-sdk", name = "android", version.ref = "webrtc" }
+webrtc = { group = "org.webrtc", name = "google-webrtc", version.ref = "webrtc" }
 socket-io-client = { group = "io.socket", name = "socket.io-client", version.ref = "socketIo" }
