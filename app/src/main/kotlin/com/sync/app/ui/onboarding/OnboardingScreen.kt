@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,11 +17,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 @Composable
 fun OnboardingScreen(onSwipeUp: () -> Unit) {
@@ -31,28 +29,30 @@ fun OnboardingScreen(onSwipeUp: () -> Unit) {
     val haptic = LocalHapticFeedback.current
 
     val intensityMultiplier by animateFloatAsState(
-        targetValue = if (isTouching) 2f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
+        targetValue = if (isTouching) 2.5f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
         label = "intensityMultiplier"
     )
 
     val expandedScale by animateFloatAsState(
-        targetValue = if (offsetY < -400f) 10f else 1f,
-        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        targetValue = if (offsetY < -400f) 12f else 1f,
+        animationSpec = tween(1000, easing = FastOutSlowInEasing),
         label = "expandedScale"
     )
 
     val screenAlpha by animateFloatAsState(
         targetValue = if (offsetY < -400f) 0f else 1f,
-        animationSpec = tween(600),
+        animationSpec = tween(800),
         label = "screenAlpha",
         finishedListener = { if (it == 0f) onSwipeUp() }
     )
 
+    val liftOffset = (offsetY * 0.2f).dp
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF050505))
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragStart = {
@@ -77,72 +77,236 @@ fun OnboardingScreen(onSwipeUp: () -> Unit) {
             }
             .alpha(screenAlpha)
     ) {
-        // Multi-layered Waveform Animation
-        Box(modifier = Modifier.align(Alignment.Center)) {
-            // Background layers
+        // Ambient Background Glow
+        AmbientGlow(
+            modifier = Modifier.fillMaxSize(),
+            isTouching = isTouching
+        )
+
+        // Syncing Particles
+        ParticleField(
+            modifier = Modifier.fillMaxSize(),
+            syncFactor = offsetY / -400f
+        )
+
+        // Multi-layered Organic Waveform
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = liftOffset)
+        ) {
+            val infiniteTransition = rememberInfiniteTransition(label = "breathing")
+            val breathScale by infiniteTransition.animateFloat(
+                initialValue = 0.95f,
+                targetValue = 1.05f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(3000, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "breath"
+            )
+
+            // Background layers with "drift"
             WaveformAnimation(
                 modifier = Modifier
                     .size(320.dp)
-                    .alpha(0.3f)
+                    .alpha(0.2f)
                     .graphicsLayer {
-                        scaleX = expandedScale * 1.1f
-                        scaleY = expandedScale * 1.1f
-                        rotationZ = 5f
+                        val s = expandedScale * 1.2f * breathScale
+                        scaleX = s
+                        scaleY = s
+                        rotationZ = 10f + (offsetY * 0.05f)
                     },
                 intensity = intensityMultiplier,
-                syncPhase = 0.7f
+                syncPhase = 0.8f
             )
             WaveformAnimation(
                 modifier = Modifier
                     .size(310.dp)
-                    .alpha(0.5f)
+                    .alpha(0.4f)
                     .graphicsLayer {
-                        scaleX = expandedScale * 1.05f
-                        scaleY = expandedScale * 1.05f
-                        rotationZ = -3f
+                        val s = expandedScale * 1.1f * breathScale
+                        scaleX = s
+                        scaleY = s
+                        rotationZ = -5f - (offsetY * 0.03f)
                     },
                 intensity = intensityMultiplier,
-                syncPhase = 0.4f
+                syncPhase = 0.5f
             )
             // Primary layer
             WaveformAnimation(
                 modifier = Modifier
                     .size(300.dp)
                     .graphicsLayer {
-                        scaleX = expandedScale
-                        scaleY = expandedScale
+                        val s = expandedScale * breathScale
+                        scaleX = s
+                        scaleY = s
                     },
                 intensity = intensityMultiplier,
                 syncPhase = 0f
             )
         }
 
-        // Bottom Swipe Area
-        Column(
+        // Bottom Subtle Hint (Discovered Interaction)
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 64.dp)
-                .offset { IntOffset(0, offsetY.roundToInt()) },
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 48.dp)
+                .offset { IntOffset(0, offsetY.roundToInt()) }
+                .graphicsLayer {
+                    alpha = (1f + offsetY / 400f).coerceIn(0.2f, 1f)
+                }
         ) {
-            // Ambient Mood Line
-            Box(
-                modifier = Modifier
-                    .width(200.dp)
-                    .height(1.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color.Transparent, Color.White.copy(alpha = 0.05f), Color.Transparent)
-                        )
-                    )
+            val infiniteTransition = rememberInfiniteTransition(label = "hint")
+            val pulseAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 0.7f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulse"
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Subtle lift handle
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .height(2.dp)
+                        .alpha(pulseAlpha)
+                        .background(Color.White, RoundedCornerShape(1.dp))
+                )
 
-            SwipeUpBar()
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Extremely subtle mood line
+                Box(
+                    modifier = Modifier
+                        .width(240.dp)
+                        .height(1.dp)
+                        .alpha(0.1f)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color.Transparent, Color.White, Color.Transparent)
+                            )
+                        )
+                )
+            }
         }
     }
 }
+
+@Composable
+fun AmbientGlow(modifier: Modifier = Modifier, isTouching: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "glow")
+    val xOffset by infiniteTransition.animateFloat(
+        initialValue = -0.2f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "x"
+    )
+    val yOffset by infiniteTransition.animateFloat(
+        initialValue = -0.2f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(11000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "y"
+    )
+
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isTouching) 0.15f else 0.08f,
+        label = "glowAlpha"
+    )
+
+    Canvas(modifier = modifier) {
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF39FF14).copy(alpha = glowAlpha), Color.Transparent),
+                center = center.copy(
+                    x = center.x * (1f + xOffset),
+                    y = center.y * (1f + yOffset)
+                ),
+                radius = size.maxDimension / 2
+            )
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFF00FFFF).copy(alpha = glowAlpha), Color.Transparent),
+                center = center.copy(
+                    x = center.x * (1f - xOffset),
+                    y = center.y * (1f - yOffset)
+                ),
+                radius = size.maxDimension / 2
+            )
+        )
+    }
+}
+
+@Composable
+fun ParticleField(modifier: Modifier = Modifier, syncFactor: Float) {
+    val particles = remember {
+        List(40) {
+            MutableParticle(
+                x = Random.nextFloat(),
+                y = Random.nextFloat(),
+                speed = 0.001f + Random.nextFloat() * 0.002f,
+                angle = Random.nextFloat() * 2 * Math.PI.toFloat()
+            )
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "particles")
+    val time by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "time"
+    )
+
+    Canvas(modifier = modifier.alpha(0.4f)) {
+        particles.forEach { p ->
+            // Move particles
+            p.x += Math.cos(p.angle.toDouble()).toFloat() * p.speed
+            p.y += Math.sin(p.angle.toDouble()).toFloat() * p.speed
+
+            // Wrap around
+            if (p.x < 0) p.x = 1f
+            if (p.x > 1) p.x = 0f
+            if (p.y < 0) p.y = 1f
+            if (p.y > 1) p.y = 0f
+
+            // Pull towards center based on syncFactor
+            val dx = 0.5f - p.x
+            val dy = 0.5f - p.y
+            p.x += dx * syncFactor * 0.05f
+            p.y += dy * syncFactor * 0.05f
+
+            drawCircle(
+                color = if (p.id % 2 == 0) Color(0xFF39FF14) else Color(0xFF00FFFF),
+                radius = 1.dp.toPx(),
+                center = androidx.compose.ui.geometry.Offset(p.x * size.width, p.y * size.height),
+                alpha = 0.3f + (1f - syncFactor) * 0.4f
+            )
+        }
+    }
+}
+
+private class MutableParticle(
+    val id: Int = Random.nextInt(),
+    var x: Float,
+    var y: Float,
+    var speed: Float,
+    var angle: Float
+)
 
 @Composable
 fun WaveformAnimation(
@@ -152,12 +316,11 @@ fun WaveformAnimation(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "waveform")
 
-    // Convergence factor: slowly goes from 0 (out of sync) to 1 (synced)
     val syncFactor by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(12000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "syncFactor"
@@ -165,15 +328,15 @@ fun WaveformAnimation(
 
     val barsCount = 30
     val animValues = List(barsCount) { index ->
-        val phaseOffset = index * 0.1f + syncPhase * (1f - syncFactor)
+        val phaseOffset = index * 0.15f + syncPhase * (1f - syncFactor)
         infiniteTransition.animateFloat(
             initialValue = 0.2f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
                 animation = tween(
-                    durationMillis = (500 + (index * 20) % 500).toInt(),
-                    easing = FastOutSlowInEasing,
-                    delayMillis = (phaseOffset * 100).toInt()
+                    durationMillis = (600 + (index * 25) % 600).toInt(),
+                    easing = EaseInOutSine,
+                    delayMillis = (phaseOffset * 150).toInt()
                 ),
                 repeatMode = RepeatMode.Reverse
             ),
@@ -182,10 +345,10 @@ fun WaveformAnimation(
     }
 
     Canvas(modifier = modifier) {
-        val barWidth = size.width / (barsCount * 1.5f)
-        val space = barWidth * 0.5f
+        val barWidth = size.width / (barsCount * 1.6f)
+        val space = barWidth * 0.6f
 
-        inset(vertical = size.height * 0.2f) {
+        inset(vertical = size.height * 0.25f) {
             for (i in 0 until barsCount) {
                 val baseHeight = size.height * animValues[i].value
                 val barHeight = (baseHeight * intensity).coerceAtMost(size.height)
@@ -195,9 +358,9 @@ fun WaveformAnimation(
                 drawRoundRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF00FFFF),
-                            Color(0xFF39FF14),
-                            Color(0xFF00FFFF)
+                            Color(0xFF00FFFF).copy(alpha = 0.8f),
+                            Color(0xFF39FF14).copy(alpha = 0.9f),
+                            Color(0xFF00FFFF).copy(alpha = 0.8f)
                         )
                     ),
                     topLeft = androidx.compose.ui.geometry.Offset(x, y),
@@ -206,41 +369,5 @@ fun WaveformAnimation(
                 )
             }
         }
-    }
-}
-
-@Composable
-fun SwipeUpBar(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "swipeHint")
-    val hintOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = -25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "hintOffset"
-    )
-
-    Column(
-        modifier = modifier.offset(y = hintOffset.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .width(60.dp)
-                .height(4.dp)
-                .background(Color.White.copy(alpha = 0.6f), RoundedCornerShape(2.dp))
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Swipe up to join the vibe",
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Light,
-            letterSpacing = 2.sp
-        )
     }
 }
