@@ -58,7 +58,7 @@ dependencies {
 
     // WebRTC
     implementation(libs.webrtc)
-    implementation(libs.socket.io.client)
+    implementation("io.socket:socket.io-client:2.1.1")
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

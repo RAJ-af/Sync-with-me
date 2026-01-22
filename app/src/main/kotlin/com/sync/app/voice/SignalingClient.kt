@@ -15,42 +15,53 @@ class SignalingClient(
 
     fun connect() {
         try {
-            socket = IO.socket(serverUrl)
+            val opts = IO.Options()
+            socket = IO.socket(serverUrl, opts)
 
-            socket?.on(Socket.EVENT_CONNECT) { _ ->
-                listener.onConnected()
-            }
+            socket?.on(Socket.EVENT_CONNECT, object : Emitter.Listener {
+                override fun call(vararg args: Any?) {
+                    listener.onConnected()
+                }
+            })
 
-            socket?.on("user-joined") { args: Array<Any> ->
-                val userId = args[0] as String
-                listener.onUserJoined(userId)
-            }
+            socket?.on("user-joined", object : Emitter.Listener {
+                override fun call(vararg args: Any?) {
+                    val userId = args[0] as String
+                    listener.onUserJoined(userId)
+                }
+            })
 
-            socket?.on("offer") { args: Array<Any> ->
-                val data = args[0] as JSONObject
-                val from = data.getString("from")
-                val sdp = data.getString("offer")
-                listener.onOfferReceived(from, SessionDescription(SessionDescription.Type.OFFER, sdp))
-            }
+            socket?.on("offer", object : Emitter.Listener {
+                override fun call(vararg args: Any?) {
+                    val data = args[0] as JSONObject
+                    val from = data.getString("from")
+                    val sdp = data.getString("offer")
+                    listener.onOfferReceived(from, SessionDescription(SessionDescription.Type.OFFER, sdp))
+                }
+            })
 
-            socket?.on("answer") { args: Array<Any> ->
-                val data = args[0] as JSONObject
-                val from = data.getString("from")
-                val sdp = data.getString("answer")
-                listener.onAnswerReceived(from, SessionDescription(SessionDescription.Type.ANSWER, sdp))
-            }
+            socket?.on("answer", object : Emitter.Listener {
+                override fun call(vararg args: Any?) {
+                    val data = args[0] as JSONObject
+                    val from = data.getString("from")
+                    val sdp = data.getString("answer")
+                    listener.onAnswerReceived(from, SessionDescription(SessionDescription.Type.ANSWER, sdp))
+                }
+            })
 
-            socket?.on("ice-candidate") { args: Array<Any> ->
-                val data = args[0] as JSONObject
-                val from = data.getString("from")
-                val candidateObj = data.getJSONObject("candidate")
-                val candidate = IceCandidate(
-                    candidateObj.getString("sdpMid"),
-                    candidateObj.getInt("sdpMLineIndex"),
-                    candidateObj.getString("sdp")
-                )
-                listener.onIceCandidateReceived(from, candidate)
-            }
+            socket?.on("ice-candidate", object : Emitter.Listener {
+                override fun call(vararg args: Any?) {
+                    val data = args[0] as JSONObject
+                    val from = data.getString("from")
+                    val candidateObj = data.getJSONObject("candidate")
+                    val candidate = IceCandidate(
+                        candidateObj.getString("sdpMid"),
+                        candidateObj.getInt("sdpMLineIndex"),
+                        candidateObj.getString("sdp")
+                    )
+                    listener.onIceCandidateReceived(from, candidate)
+                }
+            })
 
             socket?.connect()
         } catch (e: Exception) {
