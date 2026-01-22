@@ -2,6 +2,7 @@ package com.sync.app.voice
 
 import io.socket.client.IO
 import io.socket.client.Socket
+import io.socket.emitter.Emitter
 import org.json.JSONObject
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
@@ -15,26 +16,31 @@ class SignalingClient(
     fun connect() {
         try {
             socket = IO.socket(serverUrl)
-            socket?.on(Socket.EVENT_CONNECT) {
+
+            socket?.on(Socket.EVENT_CONNECT) { _ ->
                 listener.onConnected()
             }
-            socket?.on("user-joined") { args ->
+
+            socket?.on("user-joined") { args: Array<Any> ->
                 val userId = args[0] as String
                 listener.onUserJoined(userId)
             }
-            socket?.on("offer") { args ->
+
+            socket?.on("offer") { args: Array<Any> ->
                 val data = args[0] as JSONObject
                 val from = data.getString("from")
                 val sdp = data.getString("offer")
                 listener.onOfferReceived(from, SessionDescription(SessionDescription.Type.OFFER, sdp))
             }
-            socket?.on("answer") { args ->
+
+            socket?.on("answer") { args: Array<Any> ->
                 val data = args[0] as JSONObject
                 val from = data.getString("from")
                 val sdp = data.getString("answer")
                 listener.onAnswerReceived(from, SessionDescription(SessionDescription.Type.ANSWER, sdp))
             }
-            socket?.on("ice-candidate") { args ->
+
+            socket?.on("ice-candidate") { args: Array<Any> ->
                 val data = args[0] as JSONObject
                 val from = data.getString("from")
                 val candidateObj = data.getJSONObject("candidate")
@@ -45,6 +51,7 @@ class SignalingClient(
                 )
                 listener.onIceCandidateReceived(from, candidate)
             }
+
             socket?.connect()
         } catch (e: Exception) {
             e.printStackTrace()
