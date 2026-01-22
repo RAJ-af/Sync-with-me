@@ -202,8 +202,9 @@ fun EmailInputSection(viewModel: AuthViewModel) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(50))
                 .background(Color(0xFF1E1E1E)),
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.Transparent,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 cursorColor = Color.White,
@@ -243,8 +244,9 @@ fun PasswordInputSection(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(50))
                 .background(Color(0xFF1E1E1E)),
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.Transparent,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 cursorColor = Color.White,
