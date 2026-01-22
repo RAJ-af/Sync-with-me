@@ -15,9 +15,8 @@ class SignalingClient(
 
     fun connect() {
         try {
-            // Explicitly use the Android Socket.IO client
-            val socketInstance: Socket = IO.socket(serverUrl)
-            this.socket = socketInstance
+            val socketInstance = IO.socket(serverUrl)
+            socket = socketInstance
 
             socketInstance.on(Socket.EVENT_CONNECT, Emitter.Listener { _ ->
                 listener.onConnected()
