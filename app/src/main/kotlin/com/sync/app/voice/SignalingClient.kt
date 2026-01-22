@@ -7,6 +7,10 @@ import org.json.JSONObject
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 
+/**
+ * Client for handling WebRTC signaling via Socket.IO.
+ * Fixed compilation by using explicit Emitter.Listener and correct Socket.IO imports.
+ */
 class SignalingClient(
     private val serverUrl: String,
     private val listener: Listener
@@ -15,9 +19,12 @@ class SignalingClient(
 
     fun connect() {
         try {
+            // Using the official Socket.IO Android client API
             val socketInstance = IO.socket(serverUrl)
             this.socket = socketInstance
 
+            // Explicitly using object : Emitter.Listener to satisfy compiler requirements
+            // and ensure args parameter is present for all events.
             socketInstance.on(Socket.EVENT_CONNECT, object : Emitter.Listener {
                 override fun call(vararg args: Any) {
                     listener.onConnected()
@@ -26,40 +33,48 @@ class SignalingClient(
 
             socketInstance.on("user-joined", object : Emitter.Listener {
                 override fun call(vararg args: Any) {
-                    val userId = args[0] as String
-                    listener.onUserJoined(userId)
+                    if (args.isNotEmpty()) {
+                        val userId = args[0] as String
+                        listener.onUserJoined(userId)
+                    }
                 }
             })
 
             socketInstance.on("offer", object : Emitter.Listener {
                 override fun call(vararg args: Any) {
-                    val data = args[0] as JSONObject
-                    val from = data.getString("from")
-                    val sdp = data.getString("offer")
-                    listener.onOfferReceived(from, SessionDescription(SessionDescription.Type.OFFER, sdp))
+                    if (args.isNotEmpty()) {
+                        val data = args[0] as JSONObject
+                        val from = data.getString("from")
+                        val sdp = data.getString("offer")
+                        listener.onOfferReceived(from, SessionDescription(SessionDescription.Type.OFFER, sdp))
+                    }
                 }
             })
 
             socketInstance.on("answer", object : Emitter.Listener {
                 override fun call(vararg args: Any) {
-                    val data = args[0] as JSONObject
-                    val from = data.getString("from")
-                    val sdp = data.getString("answer")
-                    listener.onAnswerReceived(from, SessionDescription(SessionDescription.Type.ANSWER, sdp))
+                    if (args.isNotEmpty()) {
+                        val data = args[0] as JSONObject
+                        val from = data.getString("from")
+                        val sdp = data.getString("answer")
+                        listener.onAnswerReceived(from, SessionDescription(SessionDescription.Type.ANSWER, sdp))
+                    }
                 }
             })
 
             socketInstance.on("ice-candidate", object : Emitter.Listener {
                 override fun call(vararg args: Any) {
-                    val data = args[0] as JSONObject
-                    val from = data.getString("from")
-                    val candidateObj = data.getJSONObject("candidate")
-                    val candidate = IceCandidate(
-                        candidateObj.getString("sdpMid"),
-                        candidateObj.getInt("sdpMLineIndex"),
-                        candidateObj.getString("sdp")
-                    )
-                    listener.onIceCandidateReceived(from, candidate)
+                    if (args.isNotEmpty()) {
+                        val data = args[0] as JSONObject
+                        val from = data.getString("from")
+                        val candidateObj = data.getJSONObject("candidate")
+                        val candidate = IceCandidate(
+                            candidateObj.getString("sdpMid"),
+                            candidateObj.getInt("sdpMLineIndex"),
+                            candidateObj.getString("sdp")
+                        )
+                        listener.onIceCandidateReceived(from, candidate)
+                    }
                 }
             })
 
