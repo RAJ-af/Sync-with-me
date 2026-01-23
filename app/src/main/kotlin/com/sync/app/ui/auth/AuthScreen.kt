@@ -15,13 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -34,9 +34,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sync.app.data.repository.AuthRepository
 import kotlinx.coroutines.launch
+import kotlin.math.sin
 import kotlin.random.Random
 
-// Colors from the design prompt
+// High-fidelity color palette
 val SmokyBlack = Color(0xFF11120D)
 val FloralWhite = Color(0xFFFFFBF4)
 val WarmOrange = Color(0xFFFFA500)
@@ -83,12 +84,24 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
 
 @Composable
 fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
+    // Shared beat for rhythmic synchronization
+    val infiniteTransition = rememberInfiniteTransition(label = "beat")
+    val beatProgress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "beatProgress"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(SmokyBlack)
     ) {
-        AtmosphericBackground()
+        AtmosphericBackground(beatProgress)
 
         Column(
             modifier = Modifier
@@ -97,19 +110,19 @@ fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            BreathingTextSection()
+            MusicReactiveTextSection(beatProgress)
 
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(80.dp))
 
             AnimatedContent(
                 targetState = viewModel.step,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(800)) togetherWith fadeOut(animationSpec = tween(800))
+                    fadeIn(animationSpec = tween(1200)) togetherWith fadeOut(animationSpec = tween(1200))
                 },
                 label = "auth_step"
             ) { step ->
                 if (step == 0) {
-                    EmailDotInputSection(viewModel)
+                    MotionInputSection(viewModel, beatProgress)
                 } else {
                     PasswordInputSection(viewModel, onAuthSuccess)
                 }
@@ -118,32 +131,61 @@ fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
             if (viewModel.error != null) {
                 Text(
                     text = viewModel.error!!,
-                    color = Color.Red.copy(alpha = 0.7f),
+                    color = Color.Red.copy(alpha = 0.5f),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 16.dp),
+                    modifier = Modifier.padding(top = 24.dp),
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
             if (viewModel.step == 0) {
                 GoogleButton()
             }
         }
+
+        // Cinematic vignette
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        0.0f to Color.Transparent,
+                        1.0f to SmokyBlack.copy(alpha = 0.6f),
+                        center = Offset.Unspecified
+                    )
+                )
+        )
     }
 }
 
 @Composable
-fun AtmosphericBackground() {
-    val infiniteTransition = rememberInfiniteTransition(label = "dust")
-    val particles = remember { List(25) { DustParticle() } }
+fun AtmosphericBackground(beat: Float) {
+    val particles = remember { List(30) { RhythmicParticle() } }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Grain Layer
-        Canvas(modifier = Modifier.fillMaxSize().alpha(0.04f)) {
-            val random = Random(1337)
-            for (i in 0..2000) {
+        // Rhythmic Floating Dust
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            particles.forEach { p ->
+                // Motion is rhythmic, responding to the global beat
+                val x = (p.baseX + sin(beat * p.speedX) * 0.05f)
+                val y = (p.baseY + sin(beat * p.speedY) * 0.05f)
+                val alpha = (p.alpha * (0.8f + 0.2f * beat))
+
+                drawCircle(
+                    color = Color.White,
+                    radius = p.size.dp.toPx(),
+                    center = Offset(size.width * x, size.height * y),
+                    alpha = alpha
+                )
+            }
+        }
+
+        // Grain Overlay
+        Canvas(modifier = Modifier.fillMaxSize().alpha(0.03f)) {
+            val random = Random(42)
+            for (i in 0..1500) {
                 drawCircle(
                     color = Color.White,
                     radius = 0.5.dp.toPx(),
@@ -151,99 +193,48 @@ fun AtmosphericBackground() {
                 )
             }
         }
-
-        // Floating Dust
-        particles.forEach { particle ->
-            val xOffset by infiniteTransition.animateFloat(
-                initialValue = particle.startX,
-                targetValue = particle.endX,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(particle.duration, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dustX"
-            )
-            val yOffset by infiniteTransition.animateFloat(
-                initialValue = particle.startY,
-                targetValue = particle.endY,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(particle.duration, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dustY"
-            )
-
-            Canvas(modifier = Modifier.fillMaxSize().alpha(particle.alpha)) {
-                drawCircle(
-                    color = Color.White,
-                    radius = particle.size.dp.toPx(),
-                    center = Offset(size.width * xOffset, size.height * yOffset)
-                )
-            }
-        }
     }
 }
 
 @Composable
-fun BreathingTextSection() {
+fun MusicReactiveTextSection(beat: Float) {
     val texts = listOf("Listen together", "Talk while the music plays", "Sync the vibe")
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         texts.forEachIndexed { index, text ->
-            BreathingText(text, index * 1200)
+            val stagger = index * 0.2f
+            val breathingBeat = (beat + stagger) % 1f
+
+            Text(
+                text = text,
+                color = FloralWhite,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.ExtraLight,
+                    letterSpacing = 2.5.sp,
+                    fontSize = 19.sp
+                ),
+                modifier = Modifier
+                    .graphicsLayer {
+                        val scale = 1f + sin(breathingBeat * Math.PI.toFloat()) * 0.02f
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .alpha(0.4f + sin(breathingBeat * Math.PI.toFloat()) * 0.4f)
+                    .padding(vertical = 6.dp),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
-fun BreathingText(text: String, delayMillis: Int) {
-    val infiniteTransition = rememberInfiniteTransition(label = "breathing")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.98f,
-        targetValue = 1.02f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, delayMillis = delayMillis, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, delayMillis = delayMillis, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
-    Text(
-        text = text,
-        color = FloralWhite,
-        style = MaterialTheme.typography.bodyLarge.copy(
-            fontWeight = FontWeight.ExtraLight,
-            letterSpacing = 2.sp,
-            fontSize = 18.sp
-        ),
-        modifier = Modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .alpha(alpha)
-            .padding(vertical = 4.dp),
-        textAlign = TextAlign.Center
-    )
-}
-
-@Composable
-fun EmailDotInputSection(viewModel: AuthViewModel) {
+fun MotionInputSection(viewModel: AuthViewModel, beat: Float) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.Center) {
-            // Invisible text field to capture input
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.height(60.dp)) {
+            // Secret input field
             BasicTextField(
                 value = viewModel.email,
                 onValueChange = { viewModel.email = it },
-                modifier = Modifier.fillMaxWidth().height(40.dp),
+                modifier = Modifier.fillMaxWidth(),
                 textStyle = TextStyle(color = Color.Transparent),
                 cursorBrush = SolidColor(Color.Transparent),
                 keyboardOptions = KeyboardOptions(
@@ -252,90 +243,107 @@ fun EmailDotInputSection(viewModel: AuthViewModel) {
                 )
             )
 
-            // Glowing Dots Representation
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val dotCount = 8
-                repeat(dotCount) { index ->
-                    GlowingDot(
-                        isActive = index < viewModel.email.length || (index == 0 && viewModel.email.isEmpty()),
-                        isBlinking = index == viewModel.email.length % dotCount
-                    )
-                }
-            }
+            // Dynamic Dot Input (Moves, Connects, Merges)
+            DynamicDotInteraction(viewModel.email, beat)
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(56.dp))
 
-        ContinueButton(onClick = { viewModel.onContinue() })
+        ActionPill(onClick = { viewModel.onContinue() })
     }
 }
 
 @Composable
-fun GlowingDot(isActive: Boolean, isBlinking: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition(label = "dot")
-    val blinkAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blink"
-    )
+fun DynamicDotInteraction(input: String, beat: Float) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(40.dp)) {
+        val dotRadius = 4.dp.toPx()
+        val spacing = 30.dp.toPx()
+        val maxDots = 10
+        val centerPoint = Offset(size.width / 2, size.height / 2)
 
-    val color = if (isActive) WarmOrange else SoftYellow.copy(alpha = 0.3f)
-    val alpha = if (isBlinking) blinkAlpha else if (isActive) 0.8f else 0.2f
+        // Typing intensity affects the "vibration" of the dots
+        val typingActivity = (input.length.toFloat() / 20f).coerceIn(0f, 1f)
 
-    Canvas(modifier = Modifier.size(8.dp)) {
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color, Color.Transparent),
-                center = center,
-                radius = size.width * 1.5f
-            ),
-            radius = size.width * 1.5f,
-            alpha = alpha * 0.4f
-        )
-        drawCircle(
-            color = color,
-            radius = size.width / 2,
-            alpha = alpha
-        )
+        for (i in 0 until maxDots) {
+            val isActive = i < input.length
+            val isCursor = i == input.length
+
+            // Base position
+            val startX = (size.width - (maxDots - 1) * spacing) / 2
+            val baseX = startX + i * spacing
+
+            // Motion logic: move and connect based on typing and beat
+            val offsetY = sin(beat * Math.PI.toFloat() * 2 + i) * 5f
+            val offsetX = if (isActive) sin(beat * 5f + i) * typingActivity * 10f else 0f
+
+            val dotPos = Offset(baseX + offsetX, centerPoint.y + offsetY)
+
+            val color = if (isActive) WarmOrange else if (isCursor) SoftYellow else Color.White.copy(alpha = 0.15f)
+            val alpha = if (isCursor) 0.5f + 0.5f * sin(beat * Math.PI.toFloat() * 2) else if (isActive) 1f else 0.2f
+
+            // Draw connection line to previous dot if active (Merging effect)
+            if (i > 0 && i <= input.length) {
+                val prevX = startX + (i - 1) * spacing
+                val prevPos = Offset(prevX, centerPoint.y + sin(beat * Math.PI.toFloat() * 2 + (i - 1)) * 5f)
+                drawLine(
+                    color = WarmOrange.copy(alpha = 0.3f * alpha),
+                    start = prevPos,
+                    end = dotPos,
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Outer glow
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(color.copy(alpha = 0.2f * alpha), Color.Transparent),
+                    center = dotPos,
+                    radius = dotRadius * 4
+                ),
+                radius = dotRadius * 4,
+                center = dotPos
+            )
+
+            // Core dot
+            drawCircle(
+                color = color,
+                radius = if (isActive) dotRadius * 1.2f else dotRadius,
+                center = dotPos,
+                alpha = alpha
+            )
+        }
     }
 }
 
 @Composable
-fun ContinueButton(onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave")
-    val waveOffset by infiniteTransition.animateFloat(
+fun ActionPill(onClick: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "energy")
+    val energyFlow by infiniteTransition.animateFloat(
         initialValue = -1f,
         targetValue = 2f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
+            animation = tween(4000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "waveOffset"
+        label = "flow"
     )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
+            .height(58.dp)
+            .clip(RoundedCornerShape(29.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(29.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        // Animated Orange Wave Glow
+        // Sound Energy Flow (Orange Wave)
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val waveWidth = size.width * 0.5f
-            val startX = (size.width + waveWidth) * waveOffset - waveWidth
+            val waveWidth = size.width * 0.4f
+            val startX = (size.width + waveWidth) * energyFlow - waveWidth
             drawRect(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(Color.Transparent, WarmOrange.copy(alpha = 0.15f), Color.Transparent),
+                    colors = listOf(Color.Transparent, WarmOrange.copy(alpha = 0.12f), Color.Transparent),
                     startX = startX,
                     endX = startX + waveWidth
                 ),
@@ -346,9 +354,9 @@ fun ContinueButton(onClick: () -> Unit) {
         Text(
             text = "Continue →",
             color = Color.White,
-            fontWeight = FontWeight.Light,
-            fontSize = 16.sp,
-            letterSpacing = 1.sp
+            fontWeight = FontWeight.ExtraLight,
+            fontSize = 17.sp,
+            letterSpacing = 1.5.sp
         )
     }
 }
@@ -358,16 +366,16 @@ fun GoogleButton() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .clickable { /* Placeholder */ },
+            .height(50.dp)
+            .clickable { /* No action */ },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "Continue with Google",
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.4f),
             fontWeight = FontWeight.ExtraLight,
-            fontSize = 14.sp
+            fontSize = 14.sp,
+            letterSpacing = 1.sp
         )
     }
 }
@@ -379,16 +387,16 @@ fun PasswordInputSection(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
         TextField(
             value = viewModel.password,
             onValueChange = { viewModel.password = it },
-            placeholder = { Text("Enter password", color = Color.Gray.copy(alpha = 0.5f)) },
+            placeholder = { Text("Enter password", color = Color.Gray.copy(alpha = 0.3f)) },
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(29.dp))
                 .background(SmokyBlack),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.White.copy(alpha = 0.2f),
-                unfocusedIndicatorColor = Color.White.copy(alpha = 0.1f),
+                focusedIndicatorColor = Color.White.copy(alpha = 0.1f),
+                unfocusedIndicatorColor = Color.White.copy(alpha = 0.05f),
                 cursorColor = Color.White,
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White
@@ -400,37 +408,35 @@ fun PasswordInputSection(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
             )
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(28.dp))
+                .height(58.dp)
+                .clip(RoundedCornerShape(29.dp))
                 .background(Color.White)
                 .clickable(enabled = !viewModel.isLoading) { viewModel.onLogin(onAuthSuccess) },
             contentAlignment = Alignment.Center
         ) {
             if (viewModel.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SmokyBlack, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SmokyBlack, strokeWidth = 1.5.dp)
             } else {
-                Text("Start Syncing", color = SmokyBlack, fontWeight = FontWeight.Normal)
+                Text("Start Syncing", color = SmokyBlack, fontWeight = FontWeight.Light, letterSpacing = 1.sp)
             }
         }
 
-        TextButton(onClick = { viewModel.step = 0 }, modifier = Modifier.padding(top = 16.dp)) {
-            Text("Back", color = Color.Gray, fontSize = 14.sp)
+        TextButton(onClick = { viewModel.step = 0 }, modifier = Modifier.padding(top = 20.dp)) {
+            Text("Back", color = Color.Gray, fontSize = 13.sp)
         }
     }
 }
 
-// Helper class for dust particles
-private class DustParticle {
-    val startX = Random.nextFloat()
-    val startY = Random.nextFloat()
-    val endX = Random.nextFloat()
-    val endY = Random.nextFloat()
-    val size = Random.nextFloat() * 1.5f + 0.5f
-    val alpha = Random.nextFloat() * 0.15f + 0.05f
-    val duration = Random.nextInt(15000, 30000)
+private class RhythmicParticle {
+    val baseX = Random.nextFloat()
+    val baseY = Random.nextFloat()
+    val speedX = Random.nextFloat() * 2f + 1f
+    val speedY = Random.nextFloat() * 2f + 1f
+    val size = Random.nextFloat() * 1.2f + 0.4f
+    val alpha = Random.nextFloat() * 0.1f + 0.05f
 }
