@@ -4,8 +4,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,8 +16,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,9 +33,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sync.app.data.repository.AuthRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+
+// Colors from the design prompt
+val SmokyBlack = Color(0xFF11120D)
+val FloralWhite = Color(0xFFFFFBF4)
+val WarmOrange = Color(0xFFFFA500)
+val SoftYellow = Color(0xFFFFD700)
 
 class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
     var email by mutableStateOf("")
@@ -51,7 +64,6 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
             repository.signIn(email, password).onSuccess {
                 onSuccess()
             }.onFailure {
-                // If login fails, try signing up (the "intuitive" approach)
                 onSignUp(onSuccess)
             }
             isLoading = false
@@ -74,34 +86,30 @@ fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212)) // Soft dark gray
+            .background(SmokyBlack)
     ) {
-        GrainBackground()
+        AtmosphericBackground()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            FloatingTextSection()
+            BreathingTextSection()
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
             AnimatedContent(
                 targetState = viewModel.step,
                 transitionSpec = {
-                    if (targetState > initialState) {
-                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
-                    } else {
-                        (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
-                    }
+                    fadeIn(animationSpec = tween(800)) togetherWith fadeOut(animationSpec = tween(800))
                 },
                 label = "auth_step"
             ) { step ->
                 if (step == 0) {
-                    EmailInputSection(viewModel)
+                    EmailDotInputSection(viewModel)
                 } else {
                     PasswordInputSection(viewModel, onAuthSuccess)
                 }
@@ -110,13 +118,14 @@ fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
             if (viewModel.error != null) {
                 Text(
                     text = viewModel.error!!,
-                    color = Color(0xFFFF5252),
+                    color = Color.Red.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 16.dp),
+                    textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             if (viewModel.step == 0) {
                 GoogleButton()
@@ -126,49 +135,82 @@ fun AuthScreen(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
 }
 
 @Composable
-fun GrainBackground() {
-    Canvas(modifier = Modifier.fillMaxSize().alpha(0.05f)) {
-        val random = Random(42)
-        for (i in 0..1500) {
-            drawCircle(
-                color = Color.White,
-                radius = 0.8.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(
-                    random.nextFloat() * size.width,
-                    random.nextFloat() * size.height
+fun AtmosphericBackground() {
+    val infiniteTransition = rememberInfiniteTransition(label = "dust")
+    val particles = remember { List(25) { DustParticle() } }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Grain Layer
+        Canvas(modifier = Modifier.fillMaxSize().alpha(0.04f)) {
+            val random = Random(1337)
+            for (i in 0..2000) {
+                drawCircle(
+                    color = Color.White,
+                    radius = 0.5.dp.toPx(),
+                    center = Offset(random.nextFloat() * size.width, random.nextFloat() * size.height)
                 )
+            }
+        }
+
+        // Floating Dust
+        particles.forEach { particle ->
+            val xOffset by infiniteTransition.animateFloat(
+                initialValue = particle.startX,
+                targetValue = particle.endX,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(particle.duration, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dustX"
             )
+            val yOffset by infiniteTransition.animateFloat(
+                initialValue = particle.startY,
+                targetValue = particle.endY,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(particle.duration, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dustY"
+            )
+
+            Canvas(modifier = Modifier.fillMaxSize().alpha(particle.alpha)) {
+                drawCircle(
+                    color = Color.White,
+                    radius = particle.size.dp.toPx(),
+                    center = Offset(size.width * xOffset, size.height * yOffset)
+                )
+            }
         }
     }
 }
 
 @Composable
-fun FloatingTextSection() {
+fun BreathingTextSection() {
     val texts = listOf("Listen together", "Talk while the music plays", "Sync the vibe")
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         texts.forEachIndexed { index, text ->
-            AnimatedFloatingText(text, index * 800)
+            BreathingText(text, index * 1200)
         }
     }
 }
 
 @Composable
-fun AnimatedFloatingText(text: String, delayMillis: Int) {
-    val infiniteTransition = rememberInfiniteTransition(label = "floating")
-    val yOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = -12f,
+fun BreathingText(text: String, delayMillis: Int) {
+    val infiniteTransition = rememberInfiniteTransition(label = "breathing")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, delayMillis = delayMillis, easing = EaseInOutSine),
+            animation = tween(3000, delayMillis = delayMillis, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "yOffset"
+        label = "scale"
     )
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
+        initialValue = 0.5f,
+        targetValue = 0.9f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2500, delayMillis = delayMillis, easing = EaseInOutSine),
+            animation = tween(3000, delayMillis = delayMillis, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alpha"
@@ -176,59 +218,157 @@ fun AnimatedFloatingText(text: String, delayMillis: Int) {
 
     Text(
         text = text,
-        color = Color.White,
-        style = MaterialTheme.typography.headlineSmall.copy(
-            fontWeight = FontWeight.Light,
-            letterSpacing = 1.2.sp,
-            fontSize = 22.sp
+        color = FloralWhite,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            fontWeight = FontWeight.ExtraLight,
+            letterSpacing = 2.sp,
+            fontSize = 18.sp
         ),
         modifier = Modifier
-            .graphicsLayer { translationY = yOffset }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .alpha(alpha)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         textAlign = TextAlign.Center
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmailInputSection(viewModel: AuthViewModel) {
+fun EmailDotInputSection(viewModel: AuthViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        TextField(
-            value = viewModel.email,
-            onValueChange = { viewModel.email = it },
-            placeholder = { Text("Enter your email", color = Color.Gray) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFF1E1E1E)),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = Color.White,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            ),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
+        Box(contentAlignment = Alignment.Center) {
+            // Invisible text field to capture input
+            BasicTextField(
+                value = viewModel.email,
+                onValueChange = { viewModel.email = it },
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                textStyle = TextStyle(color = Color.Transparent),
+                cursorBrush = SolidColor(Color.Transparent),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                )
             )
-        )
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Button(
-            onClick = { viewModel.onContinue() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(58.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-        ) {
-            Text("Continue →", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            // Glowing Dots Representation
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val dotCount = 8
+                repeat(dotCount) { index ->
+                    GlowingDot(
+                        isActive = index < viewModel.email.length || (index == 0 && viewModel.email.isEmpty()),
+                        isBlinking = index == viewModel.email.length % dotCount
+                    )
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        ContinueButton(onClick = { viewModel.onContinue() })
+    }
+}
+
+@Composable
+fun GlowingDot(isActive: Boolean, isBlinking: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "dot")
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blink"
+    )
+
+    val color = if (isActive) WarmOrange else SoftYellow.copy(alpha = 0.3f)
+    val alpha = if (isBlinking) blinkAlpha else if (isActive) 0.8f else 0.2f
+
+    Canvas(modifier = Modifier.size(8.dp)) {
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(color, Color.Transparent),
+                center = center,
+                radius = size.width * 1.5f
+            ),
+            radius = size.width * 1.5f,
+            alpha = alpha * 0.4f
+        )
+        drawCircle(
+            color = color,
+            radius = size.width / 2,
+            alpha = alpha
+        )
+    }
+}
+
+@Composable
+fun ContinueButton(onClick: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "wave")
+    val waveOffset by infiniteTransition.animateFloat(
+        initialValue = -1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "waveOffset"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        // Animated Orange Wave Glow
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val waveWidth = size.width * 0.5f
+            val startX = (size.width + waveWidth) * waveOffset - waveWidth
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.Transparent, WarmOrange.copy(alpha = 0.15f), Color.Transparent),
+                    startX = startX,
+                    endX = startX + waveWidth
+                ),
+                size = size
+            )
+        }
+
+        Text(
+            text = "Continue →",
+            color = Color.White,
+            fontWeight = FontWeight.Light,
+            fontSize = 16.sp,
+            letterSpacing = 1.sp
+        )
+    }
+}
+
+@Composable
+fun GoogleButton() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .clickable { /* Placeholder */ },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Continue with Google",
+            color = Color.White.copy(alpha = 0.6f),
+            fontWeight = FontWeight.ExtraLight,
+            fontSize = 14.sp
+        )
     }
 }
 
@@ -239,16 +379,16 @@ fun PasswordInputSection(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
         TextField(
             value = viewModel.password,
             onValueChange = { viewModel.password = it },
-            placeholder = { Text("Enter password", color = Color.Gray) },
+            placeholder = { Text("Enter password", color = Color.Gray.copy(alpha = 0.5f)) },
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFF1E1E1E)),
+                .clip(RoundedCornerShape(28.dp))
+                .background(SmokyBlack),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
+                focusedIndicatorColor = Color.White.copy(alpha = 0.2f),
+                unfocusedIndicatorColor = Color.White.copy(alpha = 0.1f),
                 cursorColor = Color.White,
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White
@@ -260,60 +400,37 @@ fun PasswordInputSection(viewModel: AuthViewModel, onAuthSuccess: () -> Unit) {
             )
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        Button(
-            onClick = { viewModel.onLogin(onAuthSuccess) },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp),
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-            enabled = !viewModel.isLoading
+                .height(56.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.White)
+                .clickable(enabled = !viewModel.isLoading) { viewModel.onLogin(onAuthSuccess) },
+            contentAlignment = Alignment.Center
         ) {
             if (viewModel.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color.Black,
-                    strokeWidth = 2.dp
-                )
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SmokyBlack, strokeWidth = 2.dp)
             } else {
-                Text("Start Syncing", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                Text("Start Syncing", color = SmokyBlack, fontWeight = FontWeight.Normal)
             }
         }
 
-        TextButton(onClick = { viewModel.step = 0 }, modifier = Modifier.padding(top = 8.dp)) {
-            Text("Use a different email", color = Color.Gray, fontSize = 14.sp)
+        TextButton(onClick = { viewModel.step = 0 }, modifier = Modifier.padding(top = 16.dp)) {
+            Text("Back", color = Color.Gray, fontSize = 14.sp)
         }
     }
 }
 
-@Composable
-fun GoogleButton() {
-    OutlinedButton(
-        onClick = { /* Placeholder for Google Login */ },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp),
-        shape = RoundedCornerShape(50),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333333)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Simple drawn Google 'G' icon placeholder
-            Canvas(modifier = Modifier.size(20.dp)) {
-                drawCircle(color = Color.White, radius = size.minDimension / 2, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
-                // Drawing a simple 'G' shape
-                drawArc(
-                    color = Color.White,
-                    startAngle = 45f,
-                    sweepAngle = 270f,
-                    useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Text("Continue with Google", fontWeight = FontWeight.Normal, fontSize = 16.sp)
-        }
-    }
+// Helper class for dust particles
+private class DustParticle {
+    val startX = Random.nextFloat()
+    val startY = Random.nextFloat()
+    val endX = Random.nextFloat()
+    val endY = Random.nextFloat()
+    val size = Random.nextFloat() * 1.5f + 0.5f
+    val alpha = Random.nextFloat() * 0.15f + 0.05f
+    val duration = Random.nextInt(15000, 30000)
 }
