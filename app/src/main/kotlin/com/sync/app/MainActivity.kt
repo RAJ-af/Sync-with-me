@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
 import com.sync.app.ui.theme.ComposeEmptyActivityTheme
+import com.sync.app.ui.onboarding.OnboardingScreen
 import com.sync.app.ui.auth.AuthScreen
 import com.sync.app.ui.auth.AuthViewModel
 import com.sync.app.ui.home.HomeScreen
@@ -40,6 +41,7 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 sealed class Screen {
+    object Onboarding : Screen()
     object Auth : Screen()
     object Home : Screen()
     data class Room(val roomId: String) : Screen()
@@ -62,11 +64,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var currentScreen by remember {
-                    mutableStateOf<Screen>(if (FirebaseAuth.getInstance().currentUser == null) Screen.Auth else Screen.Home)
+                    mutableStateOf<Screen>(
+                        if (FirebaseAuth.getInstance().currentUser == null) Screen.Onboarding else Screen.Home
+                    )
                 }
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     when (val screen = currentScreen) {
+                        is Screen.Onboarding -> OnboardingScreen {
+                            currentScreen = Screen.Auth
+                        }
                         is Screen.Auth -> AuthScreen(viewModel()) {
                             currentScreen = Screen.Home
                         }

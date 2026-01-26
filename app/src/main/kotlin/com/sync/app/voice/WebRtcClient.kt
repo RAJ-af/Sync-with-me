@@ -17,7 +17,6 @@ class WebRtcClient(
         PeerConnectionFactory.initialize(options)
 
         peerConnectionFactory = PeerConnectionFactory.builder()
-            .setAudioDeviceModule(JavaAudioDeviceModule.builder(context).createAudioDeviceModule())
             .createPeerConnectionFactory()
     }
 

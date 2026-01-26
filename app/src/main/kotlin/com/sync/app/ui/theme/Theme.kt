@@ -11,15 +11,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = Cyan80,
+    secondary = CyanGrey80,
+    tertiary = NeonGreen80
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = Cyan40,
+    secondary = CyanGrey40,
+    tertiary = NeonGreen40
 )
 
 @Composable
@@ -29,10 +29,11 @@ fun ComposeEmptyActivityTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+        // Disable dynamic color to ensure no purple from system
+        // dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        //    val context = LocalContext.current
+        //    if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        // }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
